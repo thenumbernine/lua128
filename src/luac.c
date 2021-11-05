@@ -309,13 +309,22 @@ static void PrintConstant(const Proto* f, int i)
   case LUA_VNUMFLT:
 	{
 	char buff[100];
-	sprintf(buff,LUA_NUMBER_FMT,fltvalue(o));
+	// sprintf can't handle float128, so use l_sprintf, which is mapped to quadmath_snprintf
+	l_sprintf(buff,sizeof(buff),LUA_NUMBER_FMT,fltvalue(o));
 	printf("%s",buff);
 	if (buff[strspn(buff,"-0123456789")]=='\0') printf(".0");
 	break;
 	}
   case LUA_VNUMINT:
+#if LUA_INT_TYPE == LUA_INT_INT128
+	{
+	  char tmp[120];	//MAX_ITEM defined in lstrlib.c
+	  l_int128toa(tmp, sizeof(tmp), ivalue(o));
+	  printf("%s", tmp);
+	}
+#else
 	printf(LUA_INTEGER_FMT,ivalue(o));
+#endif
 	break;
   case LUA_VSHRSTR:
   case LUA_VLNGSTR:

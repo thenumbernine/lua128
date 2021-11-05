@@ -25,6 +25,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include "lobject.h"
 
 /*
 ** maximum number of captures that a pattern can do during
@@ -1123,7 +1124,6 @@ static void addquoted (luaL_Buffer *b, const char *s, size_t len) {
   luaL_addchar(b, '"');
 }
 
-
 /*
 ** Serialize a floating-point number in such a way that it can be
 ** scanned back by Lua. Use hexadecimal format for "common" numbers
@@ -1153,7 +1153,6 @@ static int quotefloat (lua_State *L, char *buff, lua_Number n) {
   return l_sprintf(buff, MAX_ITEM, "%s", s);
 }
 
-
 static void addliteral (lua_State *L, luaL_Buffer *b, int arg) {
   switch (lua_type(L, arg)) {
     case LUA_TSTRING: {
@@ -1169,10 +1168,15 @@ static void addliteral (lua_State *L, luaL_Buffer *b, int arg) {
         nb = quotefloat(L, buff, lua_tonumber(L, arg));
       else {  /* integers */
         lua_Integer n = lua_tointeger(L, arg);
+#if LUA_INT_TYPE == LUA_INT_INT128
+        // no LUA_INTEGER_FRMLEN, since the format of int128 is weird I guess
+        nb = l_int128toa(buff, MAX_ITEM, (LUAI_UACINT)n);
+#else
         const char *format = (n == LUA_MININTEGER)  /* corner case? */
                            ? "0x%" LUA_INTEGER_FRMLEN "x"  /* use hex */
                            : LUA_INTEGER_FMT;  /* else use default format */
         nb = l_sprintf(buff, MAX_ITEM, format, (LUAI_UACINT)n);
+#endif
       }
       luaL_addsize(b, nb);
       break;
@@ -1223,6 +1227,17 @@ static void addlenmod (char *form, const char *lenmod) {
   form[l + lm] = '\0';
 }
 
+#if LUA_INT_TYPE == LUA_INT_INT128
+static int l_int128tox(char * buff, size_t n, __int128 t) {
+  int64_t* hi = ((int64_t*)(&t)+1);
+  int64_t* lo = (int64_t*)(&t);
+  if (t >= 0 && *hi == 0) {  // || (t < 0 && hi == 0xffffffffffffffffll)) { // this part is only necessary for decimal printing
+    return snprintf(buff, n, "0x%lx", *lo); // though mind you we are now always padding our number if it is less than 2^64
+  }
+  return snprintf(buff, n, "0x%lx%016lx", *hi, *lo); // though mind you we are now always padding our number if it is less than 2^64
+}
+#endif
+
 
 static int str_format (lua_State *L) {
   int top = lua_gettop(L);
@@ -1253,8 +1268,12 @@ static int str_format (lua_State *L) {
         case 'd': case 'i':
         case 'o': case 'u': case 'x': case 'X': {
           lua_Integer n = luaL_checkinteger(L, arg);
+#if LUA_INT_TYPE == LUA_INT_INT128
+          nb = l_int128tox(buff, maxitem, (LUAI_UACINT)n);
+#else
           addlenmod(form, LUA_INTEGER_FRMLEN);
           nb = l_sprintf(buff, maxitem, form, (LUAI_UACINT)n);
+#endif
           break;
         }
         case 'a': case 'A':

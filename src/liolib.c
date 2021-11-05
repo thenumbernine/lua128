@@ -22,7 +22,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-
+#include "lobject.h"
 
 
 /*
@@ -656,19 +656,34 @@ static int io_readline (lua_State *L) {
 
 /* }====================================================== */
 
-
 static int g_write (lua_State *L, FILE *f, int arg) {
   int nargs = lua_gettop(L) - arg;
   int status = 1;
   for (; nargs--; arg++) {
     if (lua_type(L, arg) == LUA_TNUMBER) {
-      /* optimization: could be done exactly as for strings */
-      int len = lua_isinteger(L, arg)
-                ? fprintf(f, LUA_INTEGER_FMT,
-                             (LUAI_UACINT)lua_tointeger(L, arg))
-                : fprintf(f, LUA_NUMBER_FMT,
-                             (LUAI_UACNUMBER)lua_tonumber(L, arg));
-      status = status && (len > 0);
+
+	  /* optimization: could be done exactly as for strings */
+      int len;
+	  if (lua_isinteger(L, arg)) {
+#if LUA_INT_TYPE == LUA_INT_INT128
+	    char tmp[L_MAXLENNUM];
+		l_int128toa(tmp, sizeof(tmp), (LUAI_UACINT)lua_tointeger(L, arg));
+		len = fprintf(f, "%s", tmp);
+#else
+        len = fprintf(f, LUA_INTEGER_FMT,
+                     (LUAI_UACINT)lua_tointeger(L, arg))
+#endif
+	  } else {
+#if LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT128
+		char tmp[L_MAXLENNUM];
+		quadmath_snprintf(tmp, sizeof(tmp), "%Qf", (LUAI_UACNUMBER)lua_tonumber(L, arg));
+		len = fprintf(f, "%s", tmp);
+#else
+		len = fprintf(f, LUA_NUMBER_FMT, (LUAI_UACNUMBER)lua_tonumber(L, arg));
+#endif
+	  }
+
+	  status = status && (len > 0);
     }
     else {
       size_t l;

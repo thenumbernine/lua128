@@ -101,16 +101,18 @@
 #define LUA_INT_INT		1
 #define LUA_INT_LONG		2
 #define LUA_INT_LONGLONG	3
+#define LUA_INT_INT128	4
 
 /* predefined options for LUA_FLOAT_TYPE */
 #define LUA_FLOAT_FLOAT		1
 #define LUA_FLOAT_DOUBLE	2
 #define LUA_FLOAT_LONGDOUBLE	3
+#define LUA_FLOAT_FLOAT128	4
 
 
 /* Default configuration ('long long' and 'double', for 64-bit Lua) */
-#define LUA_INT_DEFAULT		LUA_INT_LONGLONG
-#define LUA_FLOAT_DEFAULT	LUA_FLOAT_DOUBLE
+#define LUA_INT_DEFAULT		LUA_INT_INT128
+#define LUA_FLOAT_DEFAULT	LUA_FLOAT_FLOAT128
 
 
 /*
@@ -468,6 +470,26 @@
 
 #define lua_str2number(s,p)	strtod((s), (p))
 
+#elif LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT128	/* }{ float128 */
+
+#include <quadmath.h>
+
+#define LUA_NUMBER		__float128
+
+#define l_floatatt(n)	FLT128_##n
+
+#define LUAI_UACNUMBER	__float128
+
+//just like with int128 ...
+// we have to use a fully dif print: quadmath_snprintf
+// but instead i'm going to set l_sprintf to quadmath_snprintf and just use these anyways
+#define LUA_NUMBER_FRMLEN	"Q"
+#define LUA_NUMBER_FMT		"%.14Qg"
+
+#define l_mathop(op)	op##q
+
+#define lua_str2number(s,p)	strtoflt128((s), (p))
+
 #else						/* }{ */
 
 #error "numeric float type not defined"
@@ -563,6 +585,30 @@
 
 #endif				/* } */
 
+#elif LUA_INT_TYPE == LUA_INT_INT128 /* }{ int128 */
+
+#define LUA_INTEGER			__int128
+// I don't know what this is for __int128 for printf in gcc ...
+// a quick peek into the printf source looks like there is no int128 support ...
+// so I wrote my own l_int128toa function and override everywhere that LUA_INTEGER_FRMLEN was used
+//#define LUA_INTEGER_FRMLEN	"I128"
+
+//from https://stackoverflow.com/questions/62301621/how-to-define-int128-max-and-int128-min-for-int128
+#if 1	// because #define'ing these gives a compiler error ...
+static const __uint128_t UINT128_MAX =(__uint128_t)((__int128_t)(-1L));
+static const __int128_t INT128_MAX = UINT128_MAX >> 1;
+static const __int128_t INT128_MIN = -INT128_MAX - 1;
+#endif
+#if 0
+#define UINT128_MAX ((__uint128_t)(__int128)-1L)
+#define INT128_MAX  (UINT128_MAX >> 1)
+#define INT128_MIN  (-INT128_MAX - 1)
+#endif
+
+#define LUA_MAXINTEGER		INT128_MAX
+#define LUA_MININTEGER		INT128_MIN
+#define LUA_MAXUNSIGNED		UINT128_MAX
+
 #else				/* }{ */
 
 #error "numeric integer type not defined"
@@ -582,7 +628,9 @@
 @@ l_sprintf is equivalent to 'snprintf' or 'sprintf' in C89.
 ** (All uses in Lua have only one format item.)
 */
-#if !defined(LUA_USE_C89)
+#if LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT128
+#define l_sprintf(s,sz,f,i) quadmath_snprintf(s,sz,f,i)
+#elif !defined(LUA_USE_C89)
 #define l_sprintf(s,sz,f,i)	snprintf(s,sz,f,i)
 #else
 #define l_sprintf(s,sz,f,i)	((void)(sz), sprintf(s,f,i))

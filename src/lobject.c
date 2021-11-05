@@ -349,6 +349,50 @@ int luaO_utf8esc (char *buff, unsigned long x) {
 #define MAXNUMBER2STR	44
 
 
+#if LUA_INT_TYPE == LUA_INT_INT128
+int l_int128toa(char * buff, size_t size , LUAI_UACINT i) {
+	char * start = buff;
+	char * end = buff + size;
+	if (buff >= end) return 0;
+	if (i == 0) {
+		return snprintf(buff, size, "0");
+	}
+	char * c = buff;
+	if (i < 0) {
+		*c = '-';
+		++c;
+		if (c >= end) {
+			end[-1] = '\0';
+			return c - buff;
+		}
+		i = -i;
+	}
+	char * numstart = c;	//in case we have a - sign in the front
+	while (i) {
+		int d = i % 10;
+		*c = '0' + d;
+		++c;
+		if (c >= end) {
+			end[-1] = '\0';
+			return c - buff;
+		}
+		i -= d;
+		i /= 10;
+	}
+	//digits should be reversed here -- reverse them in-place
+	int len = c - numstart;
+	int half = len / 2;
+	for (int j = 0; j < half; ++j) {
+		char tmp = numstart[len-1-j];
+		numstart[len-1-j] = numstart[j];
+		numstart[j] = tmp;
+	}
+	*c = '\0';
+	return c - start;
+}
+#endif
+
+
 /*
 ** Convert a number object to a string, adding it to a buffer
 */
@@ -356,7 +400,11 @@ static int tostringbuff (TValue *obj, char *buff) {
   int len;
   lua_assert(ttisnumber(obj));
   if (ttisinteger(obj))
-    len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(obj));
+#if LUA_INT_TYPE == LUA_INT_INT128
+	len = l_int128toa(buff, MAXNUMBER2STR, ivalue(obj));
+#else
+	len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(obj));
+#endif
   else {
     len = lua_number2str(buff, MAXNUMBER2STR, fltvalue(obj));
     if (buff[strspn(buff, "-0123456789")] == '\0') {  /* looks like an int? */

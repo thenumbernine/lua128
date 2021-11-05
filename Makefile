@@ -38,21 +38,23 @@ RM= rm -f
 # Convenience platforms targets.
 PLATS= guess aix bsd c89 freebsd generic linux linux-readline macosx mingw posix solaris
 
-# What to install.
-TO_BIN= lua luac
-TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
-TO_LIB= liblua.a
-TO_MAN= lua.1 luac.1
-
 # Lua version and release.
 V= 5.4
 R= $V.3
+
+SUFFIX= 128
+
+# What to install.
+TO_BIN= lua$(SUFFIX) luac$(SUFFIX)
+TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
+TO_LIB= liblua$(SUFFIX).a liblua$(SUFFIX).so.$(R)
+TO_MAN= lua.1 luac.1
 
 # Targets start here.
 all:	$(PLAT)
 
 $(PLATS) help test clean:
-	@cd src && $(MAKE) $@
+	@cd src && $(MAKE) $@ V=$(V) R=$(R) SUFFIX=$(SUFFIX)
 
 install: dummy
 	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD)
@@ -60,6 +62,8 @@ install: dummy
 	cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
 	cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)
 	cd doc && $(INSTALL_DATA) $(TO_MAN) $(INSTALL_MAN)
+	ln -s $(INSTALL_LIB)/liblua.so.$(R) $(INSTALL_LIB)/liblua.so.$(V)
+	ln -s $(INSTALL_LIB)/liblua.so.$(R) $(INSTALL_LIB)/liblua.so
 
 uninstall:
 	cd src && cd $(INSTALL_BIN) && $(RM) $(TO_BIN)

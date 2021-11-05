@@ -796,5 +796,9 @@ LUAI_FUNC const char *luaO_pushfstring (lua_State *L, const char *fmt, ...);
 LUAI_FUNC void luaO_chunkid (char *out, const char *source, size_t srclen);
 
 
+#if LUA_INT_TYPE == LUA_INT_INT128
+LUAI_FUNC int l_int128toa(char * buff, size_t size , LUAI_UACINT i);
+#endif
+
 #endif
 
