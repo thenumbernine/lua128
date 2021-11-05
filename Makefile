@@ -62,8 +62,8 @@ install: dummy
 	cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
 	cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)
 	cd doc && $(INSTALL_DATA) $(TO_MAN) $(INSTALL_MAN)
-	ln -s $(INSTALL_LIB)/liblua.so.$(R) $(INSTALL_LIB)/liblua.so.$(V)
-	ln -s $(INSTALL_LIB)/liblua.so.$(R) $(INSTALL_LIB)/liblua.so
+	ln -s $(INSTALL_LIB)/liblua$(SUFFIX).so.$(R) $(INSTALL_LIB)/liblua$(SUFFIX).so.$(V)
+	ln -s $(INSTALL_LIB)/liblua$(SUFFIX).so.$(R) $(INSTALL_LIB)/liblua$(SUFFIX).so
 
 uninstall:
 	cd src && cd $(INSTALL_BIN) && $(RM) $(TO_BIN)
