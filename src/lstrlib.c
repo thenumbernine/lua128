@@ -1170,7 +1170,7 @@ static void addliteral (lua_State *L, luaL_Buffer *b, int arg) {
         lua_Integer n = lua_tointeger(L, arg);
 #if LUA_INT_TYPE == LUA_INT_INT128
         // no LUA_INTEGER_FRMLEN, since the format of int128 is weird I guess
-        nb = l_int128toa(buff, MAX_ITEM, (LUAI_UACINT)n);
+        nb = l_int128toa(buff, MAX_ITEM, (LUAI_UACINT)n, 10, 0);
 #else
         const char *format = (n == LUA_MININTEGER)  /* corner case? */
                            ? "0x%" LUA_INTEGER_FRMLEN "x"  /* use hex */
@@ -1227,23 +1227,6 @@ static void addlenmod (char *form, const char *lenmod) {
   form[l + lm] = '\0';
 }
 
-#if LUA_INT_TYPE == LUA_INT_INT128
-static int l_int128tox(char * buff, size_t n, char const * const reqfmt, __int128 t) {
-  int64_t* hi = ((int64_t*)(&t)+1);
-  int64_t* lo = (int64_t*)(&t);
-  if (t >= 0 && *hi == 0) {  // || (t < 0 && hi == 0xffffffffffffffffll)) { // this part is only necessary for decimal printing
-    char fmt[] = "0x%lx";
-	fmt[4] = reqfmt[strlen(reqfmt)-1];
-	return snprintf(buff, n, fmt, *lo); // though mind you we are now always padding our number if it is less than 2^64
-  } else {
-    char fmt[] = "0x%lx%016lx";
-	fmt[10] = fmt[4] = reqfmt[strlen(reqfmt)-1];
-	return snprintf(buff, n, fmt, *hi, *lo); // though mind you we are now always padding our number if it is less than 2^64
-  }
-}
-#endif
-
-
 static int str_format (lua_State *L) {
   int top = lua_gettop(L);
   int arg = 1;
@@ -1273,18 +1256,33 @@ static int str_format (lua_State *L) {
 #if LUA_INT_TYPE == LUA_INT_INT128
         case 'd': // dec, signed
 		case 'i': // dec, signed
-        case 'o': // oct
+		{
+          lua_Integer n = luaL_checkinteger(L, arg);
+          nb = l_int128toa(buff, maxitem, (LUAI_UACINT)n, 10, 0);
+          break;
+		}
 		case 'u': // dec, unsigned
 		{
           lua_Integer n = luaL_checkinteger(L, arg);
-          nb = l_int128toa(buff, maxitem, (LUAI_UACINT)n);
+          nb = l_uint128toa(buff, maxitem, (LUAI_UACINT)n, 10, 0);
           break;
 		}
-		case 'x': // hex
-		case 'X': // hex, capital letters
+        case 'o': // oct
+		{
+          lua_Integer n = luaL_checkinteger(L, arg);
+          nb = l_uint128toa(buff, maxitem, (LUAI_UACINT)n, 8, 0);
+          break;
+		}
+		case 'x': // hex, lcase letter
+		{
+          lua_Integer n = luaL_checkinteger(L, arg);
+          nb = l_uint128toa(buff, maxitem, (LUAI_UACINT)n, 16, 0);
+          break;
+		}
+		case 'X': // hex, ucase letters
         {
           lua_Integer n = luaL_checkinteger(L, arg);
-          nb = l_int128tox(buff, maxitem, form, (LUAI_UACINT)n);
+          nb = l_uint128toa(buff, maxitem, (LUAI_UACINT)n, 16, 1);
           break;
         }
 #else
