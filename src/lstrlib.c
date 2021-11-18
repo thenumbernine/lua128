@@ -1228,13 +1228,18 @@ static void addlenmod (char *form, const char *lenmod) {
 }
 
 #if LUA_INT_TYPE == LUA_INT_INT128
-static int l_int128tox(char * buff, size_t n, __int128 t) {
+static int l_int128tox(char * buff, size_t n, char const * const reqfmt, __int128 t) {
   int64_t* hi = ((int64_t*)(&t)+1);
   int64_t* lo = (int64_t*)(&t);
   if (t >= 0 && *hi == 0) {  // || (t < 0 && hi == 0xffffffffffffffffll)) { // this part is only necessary for decimal printing
-    return snprintf(buff, n, "0x%lx", *lo); // though mind you we are now always padding our number if it is less than 2^64
+    char fmt[] = "0x%lx";
+	fmt[4] = reqfmt[strlen(reqfmt)-1];
+	return snprintf(buff, n, fmt, *lo); // though mind you we are now always padding our number if it is less than 2^64
+  } else {
+    char fmt[] = "0x%lx%016lx";
+	fmt[10] = fmt[4] = reqfmt[strlen(reqfmt)-1];
+	return snprintf(buff, n, fmt, *hi, *lo); // though mind you we are now always padding our number if it is less than 2^64
   }
-  return snprintf(buff, n, "0x%lx%016lx", *hi, *lo); // though mind you we are now always padding our number if it is less than 2^64
 }
 #endif
 
@@ -1265,17 +1270,32 @@ static int str_format (lua_State *L) {
           nb = l_sprintf(buff, maxitem, form, (int)luaL_checkinteger(L, arg));
           break;
         }
-        case 'd': case 'i':
-        case 'o': case 'u': case 'x': case 'X': {
-          lua_Integer n = luaL_checkinteger(L, arg);
 #if LUA_INT_TYPE == LUA_INT_INT128
-          nb = l_int128tox(buff, maxitem, (LUAI_UACINT)n);
-#else
-          addlenmod(form, LUA_INTEGER_FRMLEN);
-          nb = l_sprintf(buff, maxitem, form, (LUAI_UACINT)n);
-#endif
+        case 'd': // dec, signed
+		case 'i': // dec, signed
+        case 'o': // oct
+		case 'u': // dec, unsigned
+		{
+          lua_Integer n = luaL_checkinteger(L, arg);
+          nb = l_int128toa(buff, maxitem, (LUAI_UACINT)n);
+          break;
+		}
+		case 'x': // hex
+		case 'X': // hex, capital letters
+        {
+          lua_Integer n = luaL_checkinteger(L, arg);
+          nb = l_int128tox(buff, maxitem, form, (LUAI_UACINT)n);
           break;
         }
+#else
+		case 'd': case 'i':
+        case 'o': case 'u': case 'x': case 'X': {
+          lua_Integer n = luaL_checkinteger(L, arg);
+          addlenmod(form, LUA_INTEGER_FRMLEN);
+          nb = l_sprintf(buff, maxitem, form, (LUAI_UACINT)n);
+          break;
+        }
+#endif
         case 'a': case 'A':
           addlenmod(form, LUA_NUMBER_FRMLEN);
           nb = lua_number2strx(L, buff, maxitem, form,

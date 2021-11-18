@@ -351,6 +351,11 @@ int luaO_utf8esc (char *buff, unsigned long x) {
 
 #if LUA_INT_TYPE == LUA_INT_INT128
 int l_int128toa(char * buff, size_t size , LUAI_UACINT i) {
+	int useupper = 1;
+	static char lcase[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+	static char ucase[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+	char const * const scase = useupper ? ucase : lcase;
+	int base = 10;
 	char * start = buff;
 	char * end = buff + size;
 	if (buff >= end) return 0;
@@ -369,15 +374,15 @@ int l_int128toa(char * buff, size_t size , LUAI_UACINT i) {
 	}
 	char * numstart = c;	//in case we have a - sign in the front
 	while (i) {
-		int d = i % 10;
-		*c = '0' + d;
+		int d = i % base;
+		*c = scase[d];
 		++c;
 		if (c >= end) {
 			end[-1] = '\0';
 			return c - buff;
 		}
 		i -= d;
-		i /= 10;
+		i /= base;
 	}
 	//digits should be reversed here -- reverse them in-place
 	int len = c - numstart;
