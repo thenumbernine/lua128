@@ -594,7 +594,11 @@ typedef __int128 __int128_t;
 typedef unsigned __int128 __uint128_t;
 #endif
 
-#define LUA_INTEGER			__int128_t;
+#define LUA_INTEGER			__int128_t
+
+#undef LUA_UNSIGNED	// hmm, I don't like using undef ...
+#define LUA_UNSIGNED		__uint128_t
+
 // I don't know what this is for __int128 for printf in gcc ...
 // a quick peek into the printf source looks like there is no int128 support ...
 // so I wrote my own l_int128toa function and override everywhere that LUA_INTEGER_FRMLEN was used
@@ -607,7 +611,7 @@ static const __int128_t INT128_MAX = UINT128_MAX >> 1;
 static const __int128_t INT128_MIN = -INT128_MAX - 1;
 #endif
 #if 0
-#define UINT128_MAX ((__uint128_t)(__int128)-1L)
+#define UINT128_MAX ((__uint128_t)(__int128_t)-1L)
 #define INT128_MAX  (UINT128_MAX >> 1)
 #define INT128_MIN  (-INT128_MAX - 1)
 #endif

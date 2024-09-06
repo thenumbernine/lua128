@@ -319,7 +319,7 @@ static void PrintConstant(const Proto* f, int i)
 #if LUA_INT_TYPE == LUA_INT_INT128
 	{
 	  char tmp[120];	//MAX_ITEM defined in lstrlib.c
-	  l_int128toa(tmp, sizeof(tmp), ivalue(o));
+	  l_int128toa(tmp, sizeof(tmp), ivalue(o), 10, 0);
 	  printf("%s", tmp);
 	}
 #else

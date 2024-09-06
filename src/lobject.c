@@ -350,46 +350,59 @@ int luaO_utf8esc (char *buff, unsigned long x) {
 
 
 #if LUA_INT_TYPE == LUA_INT_INT128
-int l_int128toa(char * buff, size_t size , LUAI_UACINT i) {
-	char * start = buff;
-	char * end = buff + size;
-	if (buff >= end) return 0;
-	if (i == 0) {
-		return snprintf(buff, size, "0");
+
+#define SIGNED_BLOCK_FOR_SIGNED \
+	if (i < 0) { \
+		*c = '-'; \
+		++c; \
+		if (c >= end) { \
+			end[-1] = '\0'; \
+			return c - buff; \
+		} \
+		i = -i; \
 	}
-	char * c = buff;
-	if (i < 0) {
-		*c = '-';
-		++c;
-		if (c >= end) {
-			end[-1] = '\0';
-			return c - buff;
-		}
-		i = -i;
-	}
-	char * numstart = c;	//in case we have a - sign in the front
-	while (i) {
-		int d = i % 10;
-		*c = '0' + d;
-		++c;
-		if (c >= end) {
-			end[-1] = '\0';
-			return c - buff;
-		}
-		i -= d;
-		i /= 10;
-	}
-	//digits should be reversed here -- reverse them in-place
-	int len = c - numstart;
-	int half = len / 2;
-	for (int j = 0; j < half; ++j) {
-		char tmp = numstart[len-1-j];
-		numstart[len-1-j] = numstart[j];
-		numstart[j] = tmp;
-	}
-	*c = '\0';
-	return c - start;
+#define SIGNED_BLOCK_FOR_UNSIGNED
+
+#define make_int128toa(name, type, SIGNED_BLOCK) \
+int name(char * buff, size_t size, type i, int base, int upper) { \
+	static char lcase[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}; \
+	static char ucase[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'}; \
+	char const * const scase = upper ? ucase : lcase; \
+	char * start = buff; \
+	char * end = buff + size; \
+	if (buff >= end) return 0; \
+	if (i == 0) { \
+		return snprintf(buff, size, "0"); \
+	} \
+	char * c = buff; \
+	SIGNED_BLOCK \
+	char * numstart = c;	/* in case we have a - sign in the front */ \
+	while (i) { \
+		int d = i % base; \
+		*c = scase[d & 15]; \
+		++c; \
+		if (c >= end) { \
+			end[-1] = '\0'; \
+			return c - buff; \
+		} \
+		i -= d; \
+		i /= base; \
+	} \
+	/* digits should be reversed here -- reverse them in-place */ \
+	int len = c - numstart; \
+	int half = len >> 1; \
+	for (int j = 0; j < half; ++j) { \
+		char tmp = numstart[len-1-j]; \
+		numstart[len-1-j] = numstart[j]; \
+		numstart[j] = tmp; \
+	} \
+	*c = '\0'; \
+	return c - start; \
 }
+
+make_int128toa(l_int128toa, LUAI_UACINT, SIGNED_BLOCK_FOR_SIGNED)
+make_int128toa(l_uint128toa, LUA_UNSIGNED, SIGNED_BLOCK_FOR_UNSIGNED)
+
 #endif
 
 
@@ -401,7 +414,7 @@ static int tostringbuff (TValue *obj, char *buff) {
   lua_assert(ttisnumber(obj));
   if (ttisinteger(obj))
 #if LUA_INT_TYPE == LUA_INT_INT128
-	len = l_int128toa(buff, MAXNUMBER2STR, ivalue(obj));
+	len = l_int128toa(buff, MAXNUMBER2STR, ivalue(obj), 10, 0);
 #else
 	len = lua_integer2str(buff, MAXNUMBER2STR, ivalue(obj));
 #endif

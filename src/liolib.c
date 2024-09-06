@@ -667,7 +667,7 @@ static int g_write (lua_State *L, FILE *f, int arg) {
 	  if (lua_isinteger(L, arg)) {
 #if LUA_INT_TYPE == LUA_INT_INT128
 	    char tmp[L_MAXLENNUM];
-		l_int128toa(tmp, sizeof(tmp), (LUAI_UACINT)lua_tointeger(L, arg));
+		l_int128toa(tmp, sizeof(tmp), (LUAI_UACINT)lua_tointeger(L, arg), 10, 0);
 		len = fprintf(f, "%s", tmp);
 #else
         len = fprintf(f, LUA_INTEGER_FMT,
