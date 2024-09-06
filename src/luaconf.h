@@ -472,7 +472,9 @@
 
 #elif LUA_FLOAT_TYPE == LUA_FLOAT_FLOAT128	/* }{ float128 */
 
+#ifndef _WIN32
 #include <quadmath.h>
+#endif
 
 #define LUA_NUMBER		__float128
 
@@ -587,7 +589,12 @@
 
 #elif LUA_INT_TYPE == LUA_INT_INT128 /* }{ int128 */
 
-#define LUA_INTEGER			__int128
+#ifdef _WIN32
+typedef __int128 __int128_t;
+typedef unsigned __int128 __uint128_t;
+#endif
+
+#define LUA_INTEGER			__int128_t;
 // I don't know what this is for __int128 for printf in gcc ...
 // a quick peek into the printf source looks like there is no int128 support ...
 // so I wrote my own l_int128toa function and override everywhere that LUA_INTEGER_FRMLEN was used
